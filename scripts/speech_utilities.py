@@ -11,7 +11,7 @@ import sounddevice
 from scipy.io.wavfile import write
 
 # Speech_msgs
-from speech_msgs.srv import speech2text_srv, chatgpt_srv
+from speech_msgs.srv import speech2text_srv
 
 # Robot_msgs
 from robot_toolkit_msgs.srv import audio_tools_srv, misc_tools_srv
@@ -26,6 +26,9 @@ import assemblyai as aai
 
 # openAI
 from openai import OpenAI
+
+# SpeechRecognition
+import  speech_recognition as sr
 
 
 class SpeechUtilities:
@@ -117,35 +120,32 @@ class SpeechUtilities:
     # =============================== REALTIMETRANSCRIPTION ================================
 
     def callback_real_time_transcription(self, x=0):
-        def on_open(session_opened: aai.RealtimeSessionOpened):
-            print("Session ID:", session_opened.session_id)
+        
+        HOTWORD="pepper"
+        
+        def detect_hotword(recognizer, audio):
+                try:
+                    # Usa reconocimiento de voz para convertir audio a texto
+                    speech_as_text = recognizer.recognize_sphinx(audio)
+                    print(speech_as_text)  # Muestra el texto transcrito en la consola
 
-        def on_data(transcript: aai.RealtimeTranscript):
-            if not transcript.text:
-                return
+                    # Verifica si la palabra clave se encuentra en el texto transcrito
+                    if HOTWORD in speech_as_text.lower():
+                        print(f"Palabra clave '{HOTWORD}' detectada.")
 
-            if isinstance(transcript, aai.RealtimeFinalTranscript):
-                print(transcript.text, end="\r\n")
-            else:
-                print(transcript.text, end="\r")
-
-        def on_error(error: aai.RealtimeError):
-            print("An error occured:", error)
-
-        def on_close():
-            print("Closing Session")
-            
-        transcriber = aai.RealtimeTranscriber(
-            on_data=on_data,
-            on_error=on_error,
-            sample_rate=44_100,
-            on_open=on_open,
-            on_close=on_close,
-            )
-        # Start the connection
-        transcriber.connect()
-        microphone_stream = aai.extras.MicrophoneStream()
-        transcriber.stream(microphone_stream)
+                except sr.UnknownValueError:
+                    print("Sphinx no pudo entender el audio")
+                except sr.RequestError as e:
+                    print(f"Error al solicitar resultados desde el servicio Sphinx; {e}")
+                    
+        recognizer = sr.Recognizer()
+        with sr.Microphone() as source:
+            recognizer.adjust_for_ambient_noise(source)
+        
+        print("Start to talk")
+        while True:
+            audio = recognizer.listen(source)
+            detect_hotword(recognizer, audio)
         
         # =============================== GPT Q&A ======================================
         
